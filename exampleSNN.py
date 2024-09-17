@@ -39,6 +39,7 @@ mnist_train = datasets.MNIST(data_path, train=True, download=True, transform=tra
 subset = 10 # reduction factor (i.e., 10 -> reduction of 10x)
 mnist_train = utils.data_subset(mnist_train, subset)
 
+train_loader = utils.data.DataLoader(mnist_data, batch_size=batch_size, shuffle=True)
 
 # Define network
 class Net(nn.Module):
