@@ -3,6 +3,11 @@
 import torch
 import torch.nn as nn
 import snntorch as snn
+
+from snntorch import utils
+
+# necessary for mnist data
+
 from torchvision import datasets, transforms
 
 # Training Parameters
@@ -17,6 +22,23 @@ alpha = 0.9
 beta = 0.85
 
 num_steps = 100
+
+
+# Download mnist dataset
+
+# Define a transform
+transform = transforms.Compose([
+            transforms.Resize((28,28)),
+            transforms.Grayscale(),
+            transforms.ToTensor(),
+            transforms.Normalize((0), (1))])
+
+mnist_train = datasets.MNIST(data_path, train=True, download=True, transform=transform)
+
+# Create a subset of training data 
+subset = 10 # reduction factor (i.e., 10 -> reduction of 10x)
+mnist_train = utils.data_subset(mnist_train, subset)
+
 
 # Define network
 class Net(nn.Module):
