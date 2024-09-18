@@ -2,12 +2,10 @@ import snntorch as snn
 from snntorch import spikeplot as splt
 import torch
 
-
 # plotting
-import matplotlib.pyplot as plt
-from IPython.display import HTML
+# import matplotlib.pyplot as plt
+# from IPython.display import HTML
 from plotLIF import *
-
 
 lif = snn.Leaky(beta=0.8) # LIF neuron with a decay rate of beta
 
