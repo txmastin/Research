@@ -1,6 +1,6 @@
 # Problem Statement
 
-What kind of scale-invariant (i.e., scale-free) properties do fractional-order LIF spiking neural networks exhibit? 
+## What kind of scale-invariant (i.e., scale-free) properties do fractional-order LIF spiking neural networks exhibit? 
 
 - How do they compare to non fractional-order spiking neural networks?
 
@@ -13,16 +13,16 @@ What kind of scale-invariant (i.e., scale-free) properties do fractional-order L
 
 2.  Identify scale-invariant properties in fractional-order LIF spiking neural networks
 
-   - Do scaling exponents change with fractional-order parameter?
+    - Do scaling exponents change with fractional-order parameter?
 
 
 3.  Compare scaling exponents between non fractional-order and fractional-order spiking neural networks
 
-- Are scaling exponents the same or similar between non fractional and fractional SNNs?
+    - Are scaling exponents the same or similar between non fractional and fractional SNNs?
 
-- Do scaling exponents resemble those found in biological neural networks?
+    - Do scaling exponents resemble those found in biological neural networks?
     
-- How do they compare to directed percolation / ising models
+    - How do they compare to directed percolation / ising models
 
 
 ## Preliminary scale-invariant properties to investigate:
