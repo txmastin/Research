@@ -31,17 +31,17 @@ Neuronal avalanches:
         
 - Avalanche size distribution 
 
-    - When plotted over log-log plot, is distribution linear -> tau
+    - When plotted over log-log plot, is distribution linear -> $\tau$
         
 - Avalanche duration distribution
 
-    - When plotted over log-log plot, is distribution linear -> alpha
+    - When plotted over log-log plot, is distribution linear -> $\alpha$
 
 - Average size, given distribution
 
-    - When plotted over log-log plot, is distribution linear -> gamma
+    - When plotted over log-log plot, is distribution linear -> $\gamma$
 
-    - Does gamma = (alpha - 1) / (tau - 1)?
+    - Does $\gamma = \frac{(\alpha - 1)}{(\tau - 1)}$?
 
 ## Preliminary models to examine for both fractional- and non fractional-order LIF SNNs:
 
@@ -67,8 +67,8 @@ Neuronal avalanches:
 
     - Do they converge to critical point after training a sufficiently complex task
 
-    - Are scale-free properties of LIF SNNs robust to changes in V_threshold
+- Are scale-free properties of LIF SNNs robust to changes in $V_{thresh}$
         
-        - V_threshold too low may be subcritical
+    - $V_{thresh}$ too low may be subcritical
 
-        - V_threshold too high may be supercritical
+    - $V_{thresh}$ too high may be supercritical
