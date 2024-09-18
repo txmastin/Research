@@ -1,5 +1,5 @@
 # Simple example of SNN based on documentation from snntorch.readthedocs.io
-
+ 
 import torch
 import torch.nn as nn
 import snntorch as snn
