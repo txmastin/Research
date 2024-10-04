@@ -1,5 +1,8 @@
 import torch
 import torch.nn as nn
+
+import matplotlib.pyplot as plt
+
 import numpy as np
 
 class FLIFNeuron(nn.Module):
@@ -62,7 +65,7 @@ class SpikingNetwork(nn.Module):
         self.layers = nn.ModuleList([FLIFNeuron(layer_size, num_steps) for _ in range(num_layers)])
         self.layer_size = layer_size
 
-    def forward(self, x):
+    def forward(self, x, num_steps):
         for layer in self.layers:
             spikes, x = layer(x)
         return spikes

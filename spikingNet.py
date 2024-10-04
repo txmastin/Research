@@ -15,7 +15,7 @@ layers = 10
 width = 10 
 
 num_trials = 1 
-time_steps = 10000
+time_steps = 100000
 spontaneous_prob = 0.15
 
 class SpikingNetwork(nn.Module):
@@ -45,7 +45,6 @@ class SpikingNetwork(nn.Module):
         # long term depression
         ltd_mask = (delta_t < 0).float()
         weights -= self.lr*ltd_mask
-        print(weights)
         return weights
 
     def forward(self, x):
@@ -87,7 +86,7 @@ for lr in lrate:
     feedback_input = torch.zeros(width)
     for t in range(time_steps):
         if t % 1000 == 0:
-            print(f"Step: {t}")
+            print(f"Step: {t}/{time_steps}")
         spontaneous_spikes = (torch.rand(width) < spontaneous_prob).float()
         # rate_coded_spikes = spikegen.rate_conv(torch.rand(width))  
 
