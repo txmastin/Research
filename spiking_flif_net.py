@@ -18,14 +18,14 @@ avalanche_count = []
 in_avalanche = False
 current_avalanche = 0
 
-num_input = 50
-num_hidden = 50
-num_output = 50
+num_input = 80
+num_hidden = 80
+num_output = 80
 
 
 #feedback_input = torch.zeros(width)
 spk_mem = []
-alphas = [0.2, 0.4, 0.6, 0.8, 1.0]
+alphas = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
 for alpha in alphas:
     net = fnn.FSNN(num_input, num_hidden, num_output, num_steps, device, alpha)
     for t in range(time_steps):
