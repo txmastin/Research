@@ -81,8 +81,8 @@ class Net:
                 for l in range(width):
                     for m in range(height):
                         if connectivity < np.random.rand():
-                            neuron.weights[l][m] = 0
-                            #neuron.weights[l][m] *= -1
+                            #neuron.weights[l][m] = 0
+                            neuron.weights[l][m] *= -1
 
     def get_spikes(self):
         spikes = [[x.spike for x in row] for row in self.neurons]
@@ -120,28 +120,27 @@ class Net:
                         neuron.spike_trace.append(neuron.spike)
             
             activity.append(float(sum(sum(np.stack(self.get_spikes())))))
-            print(f"{(time_step/simulation_time*100):2.1f}%")
+            print(f"Alpha:{alpha} {(time_step/simulation_time*100):2.1f}%")
         return activity
 
 # Define network parameters
 width = 28
 height = 28
 
-alpha = 1 
+simulation_time = 25 # simulation_time * dt (0.1 ms) = biological time simulated
 
-simulation_time = 250 # simulation_time * dt (0.1 ms) = biological time simulated
-
-weight_scale = 1 #0.5481
+weight_scale = 1 #0.381
 
 # probability a given neuron starts with a 'spike'
-input_noise = 0.251
+input_noise = 0.5#0.251
 
 # connectivity (percent value [0,1])
 #connectivity = 0.205
+connectivity = 0.60
 
-connectivity = 0.22
- 
-for alpha in [1, 0.99, 0.95, 0.9, 0.8]:
+
+alphas = np.linspace(0.675, 0.725, 10)
+for alpha in alphas: #[1, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1]:
     # Initialize the network
     net = Net(width, height, weight_scale, input_noise, connectivity)
 
@@ -149,7 +148,7 @@ for alpha in [1, 0.99, 0.95, 0.9, 0.8]:
 
     x = np.linspace(0, simulation_time, simulation_time)
 
-    plt.plot(x, activity)
-
+    plt.plot(x, activity, label=alpha)
+    
+plt.legend()
 plt.show()
-
