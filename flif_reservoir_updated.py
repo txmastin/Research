@@ -24,6 +24,9 @@ class Neuron:
         
         for k in range(N-2):
             V_memory += (V_trace[k+1] - V_trace[k]) * ((N-k)**(1-alpha)-(N-1-k)**(1-alpha))
+
+
+
         '''        
                 self.V_diff.append((V_trace[k+1] - V_trace[k]))
         else:
@@ -80,7 +83,6 @@ class Net:
         for k in range(N-2):
             acc+=((N-k)**(1-alpha)-(N-1-k)**(1-alpha))
             V_weight.append(acc)
-        print(V_weight)        
         for time_step in range(simulation_time):
             I = np.dot(self.weights, self.get_spikes()) 
             for i in range(num_neurons):
@@ -99,8 +101,8 @@ class Net:
             print(f"Alpha:{alpha} {(time_step/simulation_time*100):2.1f}%")
         return activity 
 
-num_neurons = 784
-simulation_time = 200 # simulation_time * dt (0.1 ms) = biological time simulated
+num_neurons = 10000
+simulation_time = 25 # simulation_time * dt (0.1 ms) = biological time simulated
 input_noise = 0.5
 connectivity = 0.28261
 inhibitory = 0.2
