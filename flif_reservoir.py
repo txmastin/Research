@@ -38,17 +38,8 @@ class Neuron:
         V_memory = 0
         for k in range(N-2):
             V_memory += (V_trace[k+1] - V_trace[k]) * ((N-k)**(1-alpha)-(N-1-k)**(1-alpha))
-       
-        '''
-        delta_V = np.subtract(V_trace[1:], V_trace[0:(N - 1)])
-        memory_V = np.inner(V_weight[-len(delta_V):], delta_V)
-        
-        V_new -= memory_V
-        '''
-        
         V_new = markov_term - V_memory
         
-        # Check for spike and reset voltage if needed
         spike = (V_new > thresh)
         if spike:
             V_new = V_reset  # Reset potential after spike
@@ -56,7 +47,7 @@ class Neuron:
         return V_new, spike
 
 class Net:
-    def __init__(self, width, height, weight_scale, input_noise, connectivity):
+    def __init__(self, width, height, weight_scale, input_noise, connectivity, inhibitory, self_connections):
         self.neurons = [[Neuron(weight_scale) for _ in range(width)] for _ in range(height)]
         num_neurons = width*height
         
@@ -72,8 +63,7 @@ class Net:
                     neuron.spike_trace.append(0)
                 
                 # toggle recurrent connections on/off
-                recurrent = True
-                if not recurrent:
+                if not self_connections:
                     for k in range(len(neuron.weights)):
                         neuron.weights[i][j] = 0
 
@@ -81,7 +71,8 @@ class Net:
                 for l in range(width):
                     for m in range(height):
                         if connectivity < np.random.rand():
-                            #neuron.weights[l][m] = 0
+                            neuron.weights[l][m] = 0
+                        if inhibitory > np.random.rand():
                             neuron.weights[l][m] *= -1
 
     def get_spikes(self):
@@ -127,22 +118,27 @@ class Net:
 width = 28
 height = 28
 
-simulation_time = 25 # simulation_time * dt (0.1 ms) = biological time simulated
+simulation_time = 200 # simulation_time * dt (0.1 ms) = biological time simulated
 
 weight_scale = 1 #0.381
 
 # probability a given neuron starts with a 'spike'
-input_noise = 0.5#0.251
+input_noise = 0.5 #0.251
 
 # connectivity (percent value [0,1])
 #connectivity = 0.205
-connectivity = 0.60
+connectivity = 0.28261
+
+inhibitory = 0.2
+
+self_connections = True
 
 
-alphas = np.linspace(0.675, 0.725, 10)
-for alpha in alphas: #[1, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1]:
+
+alphas = np.linspace(0.6, 0.825, 10)
+for alpha in alphas:
     # Initialize the network
-    net = Net(width, height, weight_scale, input_noise, connectivity)
+    net = Net(width, height, weight_scale, input_noise, connectivity, inhibitory, self_connections)
 
     activity = net.run(alpha, simulation_time)
 
