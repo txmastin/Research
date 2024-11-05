@@ -1,174 +1,118 @@
-import snntorch as snn
-
-import torch
-import torch.nn as nn
 import numpy as np
 import math
 
+class Neuron:
+    def __init__(self):
+        self.spike = 0
+        self.membrane_potential = -70
+        self.threshold = -50
+        self.V_trace = []
+        self.spike_trace = []
+        self.V_diff = []
+        self.last_spike_time = -1 # used for STDP
+        self.lr = 0.01 # used for STDP
 
-class FSNN(nn.Module):
+    def lif(self, V, dt=0.1, I=0, gl=0.0025, Cm=0.5, VL=-70):
+        tau = Cm / gl
+        V = V + (dt/tau) * (-1 * (V - VL) + I / gl)
+        return V
 
-        def __init__(self, num_input, num_hidden, num_output, num_steps, device, alpha):
-
-                super().__init__()
-                torch.set_grad_enabled(False)
-
-
-                
-                self.forward_hidden = nn.Linear(num_input, num_hidden)
-                #self.forward_hidden.weight = nn.Parameter(torch.abs(self.forward_hidden.weight*10))
-                self.forward_hidden.weight = nn.Parameter(self.forward_hidden.weight)
-
-                hidden_weights = self.forward_hidden.weight
-                
-
-                self.hidden_layer = flif_neuron(num_hidden, device, num_steps, alpha)
-
-                
-                self.forward_output = nn.Linear(num_hidden, num_output)
-                self.forward_output.weight = nn.Parameter(torch.abs(self.forward_output.weight*30))
-                output_weights = self.forward_output.weight
-
-                
-                self.output_layer = flif_neuron(num_output, device, num_steps, alpha)
-
-                
-                self.num_steps = num_steps
-                self.device = device
-                self.rescale = False
-                self.rescale_count = 0
+    def flif(self, V_trace, V_weight, I=0, thresh=-50, V_reset=-70, Vl=-70, dt=0.1, alpha=0.9, gl=0.0025, Cm=0.5):
+        N = len(V_trace)
+        V_old = V_trace[N - 1] # previous voltage value at t_N-1
+        markov_term = dt**(alpha) * math.gamma(2 - alpha) * (-gl * (V_old - Vl) + I) / Cm + V_old
+        V_memory = 0
+        
+        for k in range(N-2):
+            V_memory += (V_trace[k+1] - V_trace[k]) * ((N-k)**(1-alpha)-(N-1-k)**(1-alpha))
 
 
-                self.hid_mem = self.hidden_layer.init_mem()
-                self.out_mem = self.output_layer.init_mem()
-                self.hid_spk = torch.zeros_like(self.hid_mem).to(device)
-                self.out_spk = torch.zeros_like(self.out_mem).to(device)
-                self.hist = False
-                
-        # Computes an action
-        def forward(self, data):
+        '''        
+                self.V_diff.append((V_trace[k+1] - V_trace[k]))
+        else:
+            self.V_diff.append(V_trace[N-1] - V_trace[N-2])
+        '''
+ 
+        #V_memory += np.dot(self.V_diff, V_weight[:(N-2)])
+        
+        
+        V_new = markov_term - V_memory
+        
 
-                
-                hidden_mem = self.hid_mem
-                output_mem = self.out_mem
-                
-                hid_old_spk = self.hid_spk
-
-                input_spikes = data
-
-                hidden_current = self.forward_hidden(input_spikes)
-
-                self.hid_spk, self.hid_mem = self.hidden_layer(hidden_current, self.hid_mem)
-
-                output_current = self.forward_output(self.hid_spk)
-
-                self.out_spk, self.out_mem = self.output_layer(output_current, self.out_mem)
-                return self.out_spk, self.hid_spk
-
-
-        # Called after each action; 
-        def weight_update(self, criticism):
-
-                #if self.rescale:
-                #        self.rescale_count += 1
-                hidden_weights, output_weights, feedback_weights, skip_weights = self.learner.weight_change(criticism)
-
-
-                self.forward_hidden.weight = nn.Parameter(hidden_weights)
-                self.forward_output.weight = nn.Parameter(output_weights)
-                self.feedback.weight = nn.Parameter(feedback_weights)
-                self.forward_skip.weight = nn.Parameter(skip_weights)
-
-        def reset(self):
-                self.rescale_count = 0
-                self.hidden_layer.reset_memory()
-                self.output_layer.reset_memory()
+        spike = (V_new > thresh)
+        if spike:
+            V_new = V_reset 
+            self.last_spike_time = N
+        return V_new, spike
 
 
 
-class flif_neuron(nn.Module):
-
-        weight_vector = list()
-
-        def __init__(self, size, device, num_steps, alpha):
-
-                super().__init__()
-
-                self.layer_size = size
-                self.device = device
-                self.num_steps = num_steps
-                self.delta_trace = torch.zeros(0)
-                
-                # Fractional LIF equation parameters
-                # LOOK AT TIME CONSTANTS / GL VALUES FOR ACCURACY
-                self.alpha = alpha
-                self.dt = .1 #ms
-                self.threshold = -50
-                self.V_init = -70
-                self.VL = -70
-                self.V_reset = -70
-                self.gl = 0.0025
-                self.Cm = 0.5
-                self.N = 0
-
-
-                if len(flif_neuron.weight_vector) == 0:
-                        x = num_steps
-                        
-                        nv = np.arange(x-1)
-                        flif_neuron.weight_vector = torch.tensor((x+1-nv)**(1-self.alpha)-(x-nv)**(1-self.alpha)).float().to(self.device)
-
-        def forward(self, I, V_old):
-            if self.N == 0:
-                V_new = (torch.ones_like(V_old) * self.V_init).to(self.device)
-                spike = torch.zeros_like(V_old).to(self.device)
-                self.N += 1
-                return spike, V_new
-
-            elif self.N == 1:
-                # Classical LIF
-                tau = self.Cm / self.gl
-                V_new = V_old + (self.dt / tau) * (-1 * (V_old - self.VL) + I / self.gl)
-
+class Net:
+    def __init__(self, num_neurons, input_noise=0.0, connectivity=1.0, inhibitory=0.0, self_connections=True):
+        self.num_neurons = num_neurons
+        self.neurons = [Neuron() for _ in range(num_neurons)]
+        self.weights = (np.random.rand(num_neurons, num_neurons))
+        for i in range(num_neurons):
+            neuron = self.neurons[i]
+            if input_noise > np.random.rand():
+                neuron.spike = 1
+                neuron.spike_trace.append(1)
+                neuron.membrane_potential = -50  
             else:
-                # Fractional LIF
-                V_new = self.dt**(self.alpha) * math.gamma(2 - self.alpha) * (-self.gl * (V_old - self.VL) + I) / self.Cm + V_old
-                # Select relevant parts of delta_trace and weights
-                delta_trace = self.delta_trace[:, :self.N - 1]  # Slice up to N-1
-                weights = flif_neuron.weight_vector[-(self.N - 1):]  # Get the last (N-1) weights
-
-                # Ensure delta_trace rows match the number of weights
-                if delta_trace.shape[1] > weights.shape[0]:
-                    delta_trace = delta_trace[:, :weights.shape[0]]  # Match columns to weights length
-
-                memory_V = torch.matmul(delta_trace, weights)
-
-            spike = ((V_old - self.threshold) > 0).float()
-            reset = (spike * (V_new - self.V_reset)).detach()
-            V_new = torch.sub(V_new, reset)
-            self.update_delta(V_new, V_old)
-            self.N += 1
-
-            return spike, V_new
-
-
-        def init_mem(self):
-
-                #self.delta_trace = torch.zeros(0)
-
-                self.N = 0
-                return torch.zeros(self.layer_size).to(self.device)
-
-        def reset_memory(self):
-
-                self.delta_trace = torch.zeros(0).to(self.device)
-                self.N = 0
-
-        def update_delta(self, V_new, V_old):
-            delta = torch.sub(V_new, V_old).detach()
-
-            if self.N == 1:
-                # Initialize delta_trace with the correct size
-                self.delta_trace = torch.zeros(self.layer_size, self.num_steps).to(self.device)
+                neuron.spike_trace.append(0)
             
-            self.delta_trace[:, self.N - 1] = delta
+            if not self_connections:
+                self.weights[i][i] = 0
+
+        for row in range(num_neurons):
+            for col in range(num_neurons):
+                if connectivity < np.random.rand():
+                    self.weights[col][row] = 0
+                if inhibitory > np.random.rand():
+                    self.weights[col][row] *= -1
+    
+    def get_spikes(self):
+        spikes = [neuron.spike for neuron in self.neurons]
+        return spikes
+
+    def get_membrane_potentials(self):
+        potentials = [neuron.membrane_potential for neuron in self.neurons]
+        return potentials
+
+    def apply_stdp(self, neuron, current_time, spikes):
+        for i, spike_time in enumerate(spikes):
+            if spike_time > neuron.last_spike_time:
+                self.weights[i] += neuron.lr
+                print(self.weights[i])
+            elif spike_time < neuron.last_spike_time:
+                self.weights[i] -= neuron.lr
+
+    def run(self, alpha, simulation_time, input_data):
+        activity = []
+        N = simulation_time
+        V_weight = []
+        acc = 0
+        '''
+        for k in range(N-2):
+            acc+=((N-k)**(1-alpha)-(N-1-k)**(1-alpha))
+            V_weight.append(acc)
+        '''
+        for time_step in range(simulation_time):
+            in_data = input_data[time_step]
+            I = np.dot(self.weights, self.get_spikes()) + in_data
+            for i in range(self.num_neurons):
+                neuron = self.neurons[i]
+                if time_step < 2:
+                    neuron.V_trace.append(float(neuron.membrane_potential))
+                    V = neuron.membrane_potential
+                    neuron.membrane_potential = neuron.lif(V, I=I[i])
+
+                else:
+                    neuron.V_trace.append(float(neuron.membrane_potential))
+                    neuron.membrane_potential, neuron.spike = neuron.flif(neuron.V_trace, V_weight, I=I[i], alpha=alpha)
+                    neuron.spike_trace.append(neuron.spike)
+                # self.apply_stdp(neuron, time_step, self.get_spikes()) 
+            activity.append(float(sum(np.stack(self.get_spikes()))))
+            print(f"Alpha:{alpha} {(time_step/simulation_time*100):2.1f}%")
+        return activity 
+
