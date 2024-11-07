@@ -22,9 +22,13 @@ class Neuron:
         V_old = V_trace[N - 1] # previous voltage value at t_N-1
         markov_term = dt**(alpha) * math.gamma(2 - alpha) * (-gl * (V_old - Vl) + I) / Cm + V_old
         V_memory = 0
-        
-        for k in range(N-2):
-            V_memory += (V_trace[k+1] - V_trace[k]) * ((N-k)**(1-alpha)-(N-1-k)**(1-alpha))
+        window = 500 
+        if N < window: 
+            for k in range(N-2):
+                V_memory += (V_trace[k+1] - V_trace[k]) * ((N-k)**(1-alpha)-(N-1-k)**(1-alpha))
+        else:
+            for k in range((N-window), (N-2)):
+                 V_memory += (V_trace[k+1] - V_trace[k]) * ((N-k)**(1-alpha)-(N-1-k)**(1-alpha))
 
 
         '''        
