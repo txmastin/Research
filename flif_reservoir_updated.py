@@ -12,13 +12,14 @@ img = img.flatten()
 print(img)
 num_neurons = 28*28
 
-simulation_time = 100 # simulation_time * dt (0.1 ms) = biological time simulated
+simulation_time = 10000 # simulation_time * dt (0.1 ms) = biological time simulated
 input_noise = 0
-connectivity = 0.28261
-inhibitory = 0.2
+connectivity = 1 #0.28261
+inhibitory = 0.5 #0.2
 self_connections = True
 
 input_data = [img for _ in range(simulation_time)]
+input_data1 = [np.random.rand(28*28) for _ in range(simulation_time)]
 
 
 '''
@@ -27,12 +28,10 @@ input_data = np.concatenate((input_data, [np.zeros(28*28) for _ in range(simulat
 '''
 
 activity = []
-alphas = np.linspace(0.6, 1, 5)
-for alpha in [0.8]:
+alphas = np.linspace(0.2, 1, 5)
+for alpha in alphas:
     net = flif.Net(num_neurons, input_noise, connectivity, inhibitory, self_connections)
-    for i in range(simulation_time):
-        activity.append(net.run(alpha, 10, input_data))
-    print(activity)
+    activity = net.run(alpha, simulation_time, input_data1)
     x = np.linspace(0, simulation_time, simulation_time)
     size, count = np.unique(activity, return_counts=True)
     plt.loglog(size, count, label=alpha)
