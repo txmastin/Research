@@ -10,6 +10,7 @@ class Neuron:
         self.spike_trace = []
         self.V_diff = []
         self.spike_count = 0
+        self.activity = 0
         self.last_spike = 0 # time since last spike
         self.lr_pos = 0.05
         self.lr_neg = 0.05
@@ -50,8 +51,10 @@ class Neuron:
             V_new = V_reset 
             self.spike_count += 1
             self.last_spike = 0
+            self.activity += 1
         else:
             self.last_spike += 1
+            self.activity -= 1
         return V_new, spike
 
 
@@ -91,11 +94,12 @@ class Net:
     def weight_update(self, overactive, underactive):
         for i in range(self.num_neurons):
             neuron = self.neurons[i]
-            if neuron.spike_count > overactive:
+            if neuron.activity > overactive:
                 self.weights[:][i] -= neuron.lr_neg
-                neuron.spike_count = 0
-            elif neuron.last_spike > underactive:
+                neuron.activity = 0
+            elif neuron.activity < underactive:
                 self.weights[:][i] += neuron.lr_pos
+                self.activity = 0
 
     def run(self, alpha, simulation_time, input_data):
         activity = []
@@ -121,11 +125,11 @@ class Net:
                     neuron.V_trace.append(float(neuron.membrane_potential))
                     neuron.membrane_potential, neuron.spike = neuron.flif(neuron.V_trace, V_weight, I=I[i], alpha=alpha)
                     neuron.spike_trace.append(neuron.spike)
-            if time_step > 500:
-                self.weight_update(50, 10)
+            if time_step > 0:
+                self.weight_update(100, -100)
             print(self.weights)
             print(sum(sum(self.weights))/(self.num_neurons*self.num_neurons))
             activity.append(float(sum(np.stack(self.get_spikes()))))
             print(f"Alpha:{alpha} {(time_step/simulation_time*100):2.1f}%")
-        return activity 
+        return activity, self.weights 
 
