@@ -131,5 +131,6 @@ class Net:
             print(sum(sum(self.weights))/(self.num_neurons*self.num_neurons))
             activity.append(float(sum(np.stack(self.get_spikes()))))
             print(f"Alpha:{alpha} {(time_step/simulation_time*100):2.1f}%")
-        return activity, self.weights 
+        return activity, np.stack(self.weights)
+
 
