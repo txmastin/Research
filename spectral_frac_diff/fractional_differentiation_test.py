@@ -8,6 +8,7 @@ import torch
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader, TensorDataset
 from torch import nn, optim
+import torch.nn.functional as F
 
 def power_law(k, alpha, c):
     return c * k**(-alpha)
@@ -23,7 +24,7 @@ def fractional_diff_2d(image, alpha):
 
     # Apply fractional differentiation operator in frequency domain
     fft_image = fft2(image)
-    frac_operator = (2 * np.pi * radius)**alpha
+    frac_operator = (1j * 2 * np.pi * radius)**alpha
     diff_image = ifft2(fft_image * frac_operator).real
     return diff_image
 
@@ -50,16 +51,17 @@ def calc_power_spectrum(img):
     # Adjust the amplitude to account for bin area
     Abins *= np.pi * (kbins[1:]**2 - kbins[:-1]**2)
 
-    fit_range = (kvals > 0) & (kvals < 18000)
+    fit_range = (kvals > 10) & (kvals < 280000)
     kvals_fit = kvals[fit_range]
     Abins_fit = Abins[fit_range]
     # Fit the power law using curve_fit
-    popt, pcov = curve_fit(power_law, kvals_fit, Abins_fit, p0=[1, 10**12])
+    popt, pcov = curve_fit(power_law, kvals_fit, Abins_fit, p0=[1, 10**14])
 
     # Extract the fitted beta value
     beta = popt[0]
         
     return beta, kvals_fit, Abins_fit
+
 
 def preprocess_data(dataset, fractional_diff_2d):
     preprocessed_data = []
@@ -105,11 +107,44 @@ frac_test_loader = DataLoader(TensorDataset(frac_test_data, frac_test_labels), b
 train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
 test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
 
+# Fully Connected Network (FCN)
+class SimpleFCN(nn.Module):
+    def __init__(self, input_size=32*32, num_classes=10):
+        super().__init__()
+        self.fc1 = nn.Linear(input_size, 512)  # Input size depends on flattened image size
+        self.fc2 = nn.Linear(512, 256)
+        self.fc3 = nn.Linear(256, 128)
+        self.fc4 = nn.Linear(128, num_classes)
+
+    def forward(self, x):
+        x = torch.flatten(x, 1)  # Flatten all dimensions except batch
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = F.relu(self.fc3(x))
+        x = self.fc4(x)  # No activation here; logits are returned
+        return x
 
 
 # Simple CNN
 class SimpleCNN(nn.Module):
     def __init__(self):
+        super().__init__()
+        self.conv1 = nn.Conv2d(1, 6, 5)
+        self.pool = nn.MaxPool2d(2, 2)
+        self.conv2 = nn.Conv2d(6, 16, 5)
+        self.fc1 = nn.Linear(16 * 5 * 5, 120)
+        self.fc2 = nn.Linear(120, 84)
+        self.fc3 = nn.Linear(84, 10)
+
+    def forward(self, x):
+        x = self.pool(F.relu(self.conv1(x)))
+        x = self.pool(F.relu(self.conv2(x)))
+        x = torch.flatten(x, 1) # flatten all dimensions except batch
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = self.fc3(x)
+        return x
+        '''
         super(SimpleCNN, self).__init__()
         self.conv = nn.Sequential(
             nn.Conv2d(1, 16, 3, padding=1),
@@ -130,11 +165,12 @@ class SimpleCNN(nn.Module):
         x = self.conv(x)
         x = self.fc(x)
         return x
+        '''
 
 # Initialize model, loss, and optimizer
-model = SimpleCNN()
+model = SimpleFCN()
 criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), lr=0.001)
+optimizer = optim.Adam(model.parameters(), lr=0.0001)
 
 # Training loop
 for epoch in range(10):
@@ -161,9 +197,9 @@ with torch.no_grad():
 print(f"Test Accuracy After Fractional Differentiation: {100 * correct / total:.2f}%")
 
 # Initialize model, loss, and optimizer
-model = SimpleCNN()
+model = SimpleFCN()
 criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), lr=0.001)
+optimizer = optim.Adam(model.parameters(), lr=0.0001)
 
 # Training loop
 for epoch in range(10):

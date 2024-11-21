@@ -125,10 +125,13 @@ class Net:
                     neuron.V_trace.append(float(neuron.membrane_potential))
                     neuron.membrane_potential, neuron.spike = neuron.flif(neuron.V_trace, V_weight, I=I[i], alpha=alpha)
                     neuron.spike_trace.append(neuron.spike)
+            '''
             if time_step > 0:
                 self.weight_update(100, -100)
+            
             print(self.weights)
             print(sum(sum(self.weights))/(self.num_neurons*self.num_neurons))
+            '''
             activity.append(float(sum(np.stack(self.get_spikes()))))
             print(f"Alpha:{alpha} {(time_step/simulation_time*100):2.1f}%")
         return activity, np.stack(self.weights)
