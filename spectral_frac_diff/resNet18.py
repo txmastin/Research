@@ -6,7 +6,7 @@ from torchvision import transforms, datasets
 from torch.utils.data import DataLoader
 
 # Training function
-def train(model, dataloader, num_epochs=100):
+def train(model, dataloader, num_epochs=10):
     model.train()
     for epoch in range(num_epochs):
         total_loss = 0
@@ -72,7 +72,7 @@ optimizer = optim.SGD(model.parameters(), lr=0.1, momentum=0.9, weight_decay=5e-
 scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.1)
 
 # Train and test
-train(model, train_loader, num_epochs=100)
+train(model, train_loader, num_epochs=10)
 accuracy = evaluate(model, test_loader)
 print(f"Test Accuracy: {accuracy * 100:.2f}%")
 
