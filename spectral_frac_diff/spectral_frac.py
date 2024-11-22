@@ -52,3 +52,25 @@ def calc_power_spectrum(img):
     popt, pcov = curve_fit(power_law, kvals_fit, abins_fit, p0=[2, 10**14])
     return popt, kvals_fit, abins_fit
 
+def isolate_whitened_portion(frac_diff_img, threshold=1):
+
+    # Perform Fourier transform
+    F = np.fft.fft2(frac_diff_img)
+    F_shifted = np.fft.fftshift(F)  # Shift zero frequency to center
+
+    # Compute power spectral density (PSD)
+    PSD = np.abs(F_shifted)**2
+
+    # Identify frequencies with approximately flat PSD (whitening regions)
+    mean_psd = np.mean(PSD)
+    whitening_mask = (PSD < (1 + threshold) * mean_psd) & (PSD > (1 - threshold) * mean_psd)
+
+    # Apply whitening mask
+    F_whitened = F_shifted * whitening_mask
+
+    # Inverse Fourier transform to get spatial domain whitened portion
+    F_whitened_shifted = np.fft.ifftshift(F_whitened)
+    whitened_img = np.fft.ifft2(F_whitened_shifted).real
+
+    return whitened_img
+

@@ -9,6 +9,7 @@ from torchvision import datasets, transforms
 from torch.utils.data import DataLoader, TensorDataset
 from torch import nn, optim
 import torch.nn.functional as F
+import spectral_frac as sf
 
 def power_law(k, alpha, c):
     return c * k**(-alpha)
@@ -55,12 +56,35 @@ def calc_power_spectrum(img):
     kvals_fit = kvals[fit_range]
     Abins_fit = Abins[fit_range]
     # Fit the power law using curve_fit
-    popt, pcov = curve_fit(power_law, kvals_fit, Abins_fit, p0=[1, 10**14])
+    popt, pcov = curve_fit(power_law, kvals_fit, Abins_fit, p0=[2, 10**14])
 
     # Extract the fitted beta value
     beta = popt[0]
         
     return beta, kvals_fit, Abins_fit
+
+def isolate_whitened_portion(frac_diff_img, threshold=5):
+
+    # Perform Fourier transform
+    F = np.fft.fft2(frac_diff_img)
+    F_shifted = np.fft.fftshift(F)  # Shift zero frequency to center
+
+    # Compute power spectral density (PSD)
+    PSD = np.abs(F_shifted)**2
+
+    # Identify frequencies with approximately flat PSD (whitening regions)
+    mean_psd = np.mean(PSD)
+    whitening_mask = (PSD < (1 + threshold) * mean_psd) & (PSD > (1 - threshold) * mean_psd)
+
+    # Apply whitening mask
+    F_whitened = F_shifted * whitening_mask
+
+    # Inverse Fourier transform to get spatial domain whitened portion
+    F_whitened_shifted = np.fft.ifftshift(F_whitened)
+    whitened_img = np.fft.ifft2(F_whitened_shifted).real
+
+    return whitened_img
+
 
 
 def preprocess_data(dataset, fractional_diff_2d):
@@ -75,7 +99,9 @@ def preprocess_data(dataset, fractional_diff_2d):
         beta,_,_ = calc_power_spectrum(img_np)
         alpha = beta / 2
         img_frac = fractional_diff_2d(img_np, alpha)
-        img_tensor = torch.tensor(img_frac, dtype=torch.float32).unsqueeze(0)
+        w_img = isolate_whitened_portion(img_frac)
+        res_img = 2*img+(img - 5*w_img)
+        img_tensor = torch.tensor(res_img, dtype=torch.float32).unsqueeze(0)
         preprocessed_data.append(img_tensor)
         labels.append(label)
     
@@ -132,9 +158,9 @@ class SimpleCNN(nn.Module):
         self.conv1 = nn.Conv2d(1, 6, 5)
         self.pool = nn.MaxPool2d(2, 2)
         self.conv2 = nn.Conv2d(6, 16, 5)
-        self.fc1 = nn.Linear(16 * 5 * 5, 120)
-        self.fc2 = nn.Linear(120, 84)
-        self.fc3 = nn.Linear(84, 10)
+        self.fc1 = nn.Linear(16 * 5 * 5, 124)
+        self.fc2 = nn.Linear(124, 32)
+        self.fc3 = nn.Linear(32, 10)
 
     def forward(self, x):
         x = self.pool(F.relu(self.conv1(x)))
@@ -144,84 +170,72 @@ class SimpleCNN(nn.Module):
         x = F.relu(self.fc2(x))
         x = self.fc3(x)
         return x
-        '''
-        super(SimpleCNN, self).__init__()
-        self.conv = nn.Sequential(
-            nn.Conv2d(1, 16, 3, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(2),
-            nn.Conv2d(16, 32, 3, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(2)
-        )
-        self.fc = nn.Sequential(
-            nn.Flatten(),
-            nn.Linear(2048, 1000),
-            nn.ReLU(),
-            nn.Linear(1000, 10)  # Assuming 10 classes
-        )
 
-    def forward(self, x):
-        x = self.conv(x)
-        x = self.fc(x)
-        return x
-        '''
 
-# Initialize model, loss, and optimizer
-model = SimpleFCN()
-criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), lr=0.0001)
+average = 0
+diff_arr = []
+tests = 20
+for i in range(tests):
+    # Initialize model, loss, and optimizer
+    model = SimpleCNN()
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
 
-# Training loop
-for epoch in range(10):
-    model.train()
-    for images, labels in frac_train_loader:
-        optimizer.zero_grad()
-        outputs = model(images)
-        loss = criterion(outputs, labels)
-        loss.backward()
-        optimizer.step()
-    print(f"Epoch {epoch+1}, Loss: {loss.item()}")
+    # Training loop
+    for epoch in range(10):
+        model.train()
+        for images, labels in frac_train_loader:
+            optimizer.zero_grad()
+            outputs = model(images)
+            loss = criterion(outputs, labels)
+            loss.backward()
+            optimizer.step()
+        #print(f"Epoch {epoch+1}, Loss: {loss.item()}")
 
-# Testing loop
-model.eval()
-correct = 0
-total = 0
-with torch.no_grad():
-    for images, labels in frac_test_loader:
-        outputs = model(images)
-        _, predicted = torch.max(outputs, 1)
-        total += labels.size(0)
-        correct += (predicted == labels).sum().item()
+    # Testing loop
+    model.eval()
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        for images, labels in frac_test_loader:
+            outputs = model(images)
+            _, predicted = torch.max(outputs, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+    frac_acc = 100*correct/total
+    print(f"Test Accuracy After Fractional Differentiation: {100 * correct / total:.2f}%")
 
-print(f"Test Accuracy After Fractional Differentiation: {100 * correct / total:.2f}%")
+    # Initialize model, loss, and optimizer
+    model = SimpleCNN()
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
 
-# Initialize model, loss, and optimizer
-model = SimpleFCN()
-criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), lr=0.0001)
+    # Training loop
+    for epoch in range(10):
+        model.train()
+        for images, labels in train_loader:
+            optimizer.zero_grad()
+            outputs = model(images)
+            loss = criterion(outputs, labels)
+            loss.backward()
+            optimizer.step()
+        #print(f"Epoch {epoch+1}, Loss: {loss.item()}")
 
-# Training loop
-for epoch in range(10):
-    model.train()
-    for images, labels in train_loader:
-        optimizer.zero_grad()
-        outputs = model(images)
-        loss = criterion(outputs, labels)
-        loss.backward()
-        optimizer.step()
-    print(f"Epoch {epoch+1}, Loss: {loss.item()}")
-
-# Testing loop
-model.eval()
-correct = 0
-total = 0
-with torch.no_grad():
-    for images, labels in test_loader:
-        outputs = model(images)
-        _, predicted = torch.max(outputs, 1)
-        total += labels.size(0)
-        correct += (predicted == labels).sum().item()
-
-print(f"Test Accuracy Without Fractional Differentiation: {100 * correct / total:.2f}%")
-
+    # Testing loop
+    model.eval()
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        for images, labels in test_loader:
+            outputs = model(images)
+            _, predicted = torch.max(outputs, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+    nfrac_acc = 100*correct/total
+    print(f"Test Accuracy Without Fractional Differentiation: {100 * correct / total:.2f}%")
+    
+    diff = frac_acc - nfrac_acc
+    print("different: ", diff)
+    diff_arr.append(diff)
+    average = sum(diff_arr)/(i+1)
+    print("average: ", average)
