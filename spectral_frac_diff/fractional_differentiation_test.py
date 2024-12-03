@@ -85,7 +85,17 @@ def isolate_whitened_portion(frac_diff_img, threshold=5):
 
     return whitened_img
 
-
+def hpf(dataset):
+    hpf_data = []
+    labels = []
+    i = 0
+    for img, label in dataset:
+        print(i)
+        i+=1
+        img = cv.Laplacian(img, cv.CV_64F)
+        hpf_data.append(torch.tensor(img, dtype=torch.float32))
+        labels.append(label)
+    return torch.stack(hpf_data), torch.tensor(label)
 
 def preprocess_data(dataset, fractional_diff_2d):
     preprocessed_data = []
@@ -133,6 +143,14 @@ frac_test_loader = DataLoader(TensorDataset(frac_test_data, frac_test_labels), b
 train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
 test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
 
+hpf_train_data, hpf_train_labels = preprocess_data(train_dataset, fractional_diff_2d)
+hpf_test_data, hpf_test_labels = preprocess_data(test_dataset, fractional_diff_2d)
+
+hpf_train_loader = DataLoader(TensorDataset(hpf_train_data, hpf_train_labels), batch_size=32, shuffle=True)
+hpf_test_loader = DataLoader(TensorDataset(hpf_test_data, hpf_test_labels), batch_size=32, shuffle=False)
+
+
+
 # Fully Connected Network (FCN)
 class SimpleFCN(nn.Module):
     def __init__(self, input_size=32*32, num_classes=10):
@@ -174,7 +192,10 @@ class SimpleCNN(nn.Module):
 
 average = 0
 diff_arr = []
-tests = 20
+hpf_diff_arr = []
+avg_arr = []
+hpf_avg_arr = []
+tests = 50
 for i in range(tests):
     # Initialize model, loss, and optimizer
     model = SimpleCNN()
@@ -233,9 +254,53 @@ for i in range(tests):
             correct += (predicted == labels).sum().item()
     nfrac_acc = 100*correct/total
     print(f"Test Accuracy Without Fractional Differentiation: {100 * correct / total:.2f}%")
-    
+
+    # Initialize model, loss, and optimizer
+    model = SimpleCNN()
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
+
+    # Training loop
+    for epoch in range(10):
+        model.train()
+        for images, labels in hpf_train_loader:
+            optimizer.zero_grad()
+            outputs = model(images)
+            loss = criterion(outputs, labels)
+            loss.backward()
+            optimizer.step()
+        #print(f"Epoch {epoch+1}, Loss: {loss.item()}")
+
+    # Testing loop
+    model.eval()
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        for images, labels in hpf_test_loader:
+            outputs = model(images)
+            _, predicted = torch.max(outputs, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+    hpf_acc = 100*correct/total
+    print(f"Test Accuracy After HPF: {100 * correct / total:.2f}%")
+
+
     diff = frac_acc - nfrac_acc
-    print("different: ", diff)
+    print("Difference Between Fractional Preprocessing and Raw: ", diff)
+    hpf_diff = hpf_acc - nfrac_acc
+    print("Difference Between HPF Preprocessing and Raw: ", hpf_diff)
     diff_arr.append(diff)
+    hpf_diff_arr.append(hpf_diff)
+
     average = sum(diff_arr)/(i+1)
-    print("average: ", average)
+    hpf_average = sum(hpf_diff_arr)/(i+1)
+    
+    print("Cumulative Average Difference for Fractional Preprocessing: ", average)
+    print("Cumulative Average Difference for HPF Preprocessing: ", hpf_average)
+    avg_arr.append(average)
+    hpf_avg_arr.append(hpf_average)
+
+np.savetxt('raw_diff.dat', diff_arr, fmt="%1.3f", delimiter=',')
+np.savetxt('raw_avg.dat', avg_arr, fmt="%1.3f", delimiter=',')
+np.savetxt('raw_hpf_diff.dat', hpf_diff_arr, fmt="%1.3f", delimiter=',')
+np.savetxt('raw_hpf_avg_arr.dat', hpf_avg_arr, fmt="%1.3f", delimiter=',')
