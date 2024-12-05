@@ -25,7 +25,7 @@ def isolate_whitened_portion(frac_diff_img, threshold=5):
 
     return whitened_img
 
-img = cv.imread("data/trees.jpg", cv.IMREAD_GRAYSCALE)
+img = cv.imread("data/bass.jpg", cv.IMREAD_GRAYSCALE)
 img=img[:, :len(img)]
 
 _, fig = plt.subplots(2,3)
@@ -38,9 +38,13 @@ alpha = beta / 2
 
 # Log-log plot of the binned power spectrum
 fig[0,0].loglog(kvals_fit, Abins_fit, label='Binned Power Spectrum')
+fig[0,0].set_yticks([])
+fig[0,0].set_yticks([], minor=1)
+fig[0,0].set_title("PSD")
+'''
 fig[0,0].set_xlabel("$k$")
 fig[0,0].set_ylabel("$P(k)$")
-
+'''
 print(f"Estimated slope: {beta}")
 print(f"Estimated alpha: {alpha}")
 
@@ -51,8 +55,13 @@ fig[0,0].loglog(kvals_fit, sf.power_law(kvals_fit, *popt), 'r--', label=f'Fit: $
 #fig[0,0].set_legend()
 _, kvals_fit, Abins_fit = sf.calc_power_spectrum(diff_img)
 fig[0,1].loglog(kvals_fit, Abins_fit, label='Binned Power Spectrum')
+'''
 fig[0,1].set_xlabel("$k$")
 fig[0,1].set_ylabel("$P(k)$")
+'''
+fig[0,1].set_yticks([])
+fig[0,1].set_title("PSD")
+
 
 w_img = isolate_whitened_portion(diff_img)
 
@@ -63,16 +72,23 @@ res_img = 2*img+(img - 5*w_img)
 
 _, kvals_fit, Abins_fit = sf.calc_power_spectrum(res_img)
 fig[0,2].loglog(kvals_fit, Abins_fit, label='Binned Power Spectrum')
+'''
 fig[0,2].set_xlabel("$k$")
-fig[0,2].set_ylabel("$P(k)$")
 
+
+fig[0,2].set_ylabel("$P(k)$")
+'''
+fig[0,2].set_yticks([])
+fig[0,2].set_title("PSD")
 
 
 
 fig[1,0].imshow(img, cmap='gray')
+fig[1,0].set_title("Original Image")
 fig[1,1].imshow(diff_img, cmap='gray')
+fig[1,1].set_title("Whitened Image")
 fig[1,2].imshow(res_img, cmap='gray')
-
+fig[1,2].set_title("Residual Image")
 
 plt.show()
 
