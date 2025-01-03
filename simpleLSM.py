@@ -92,10 +92,10 @@ def renormalize(lsm, w_th):
 def train_output_layer(lsm, input_sequence, target, learning_rate): #target is now a single value
     reservoir_activations, avl = lsm.step(input_sequence[-1]) #only take the last value of the input sequence
     prediction = lsm.predict(reservoir_activations)
-    print("target:", target, "\nprediction", prediction)
+    #print("target:", target, "\nprediction", prediction)
 
     error = target - prediction
-    print("error:", error)
+    #print("error:", error)
     #norm_activations = reservoir_activations / (np.linalg.norm(reservoir_activations) + 1e-6)
     lsm.W_out += learning_rate * np.outer(error, reservoir_activations)
     return abs(error), [avl] #return the absolute error
@@ -123,7 +123,7 @@ def generate_sine_wave(length, amplitude, frequency):
 sine_wave = generate_sine_wave(500, 1, 1)
 
 lsm = SpikingLiquidStateMachine() 
-num_epochs = 1000  # Increased epochs for better observation
+num_epochs = 5000  # Increased epochs for better observation
 input_window_size = 5
 learning_rate = 0.001
 # Reduced learning rate
@@ -138,12 +138,15 @@ for epoch in range(num_epochs):
         err, avl = train_output_layer(lsm, input_sequence, target, learning_rate)
         avls.extend(avl)
         epoch_error.append(err)
+    
     avg_errors.append(np.mean(epoch_error))
 
     print(f"Epoch {epoch+1}/{num_epochs}, Average Error: {np.mean(epoch_error)}")
-renormalize(lsm, 0.007)
+#renormalize(lsm, 0.007)
+
 test_runs = 50
 test_errors = [] 
+
 for test in range(test_runs):
     test_error = []
     for i in range(len(sine_wave) - input_window_size -1): #reduce range by one
@@ -152,11 +155,11 @@ for test in range(test_runs):
         err, avl = train_output_layer(lsm, input_sequence, target, 0.0)
         avls.extend(avl)
         test_error.append(err)
-    test_errors.append(np.mean(epoch_error))
+    
+    avg_errors.append(np.mean(test_error))
 
-    print(f"Test {epoch+1}/{num_epochs}, Average Error: {np.mean(epoch_error)}")
+    print(f"Test {epoch+1}/{num_epochs}, Average Error: {np.mean(test_error)}")
 
-avg_errors.extend(test_errors)
 # Plot the error over all training steps
 plt.plot(avg_errors)
 plt.xlabel("Training Epoch")
