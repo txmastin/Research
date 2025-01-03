@@ -4,11 +4,11 @@ import matplotlib.pyplot as plt
 class SpikingLiquidStateMachine:
     def __init__(self, 
                  n_reservoir=1000, 
-                 connectivity=0.51, 
-                 spectral_radius=0.95, 
+                 connectivity=0.2, 
+                 spectral_radius=0.9, 
                  input_scaling=1, 
-                 leak_rate=0.05, 
-                 threshold=0.95, 
+                 leak_rate=0.2, 
+                 threshold=0.7, 
                  resting_potential=0.0, 
                  refractory_period=2):
         
@@ -62,37 +62,55 @@ class SpikingLiquidStateMachine:
 
     def predict(self, reservoir_activations):
         return np.tanh(np.dot(self.W_out, reservoir_activations))
-    
-'''
-def train_output_layer(slsm, input_sequence, target_sequence, learning_rate):
-    error_trace = []
-    avls = []
-    for input, target in zip(input_sequence, target_sequence):
-        reservoir_activations, avl = slsm.step(input)
-        prediction = slsm.predict(reservoir_activations)
-        #print("target:", target, "\nprediction", prediction)
-        error = target - prediction
-        error_trace.append(error)
-        slsm.W_out += learning_rate * np.outer(error, reservoir_activations) - 0.1 * slsm.W_out
-        #norm_activations = reservoir_activations / (np.linalg.norm(reservoir_activations) + 1e-6)
-        #slsm.W_out += learning_rate * np.outer(error, norm_activations) - 0.1 * slsm.W_out
- 
-        #print("error:", error)
-        avls.append(avl)
 
-    return np.mean(np.abs(error_trace)), avls
-'''
-def train_output_layer(slsm, input_sequence, target, learning_rate): #target is now a single value
-    reservoir_activations, avl = slsm.step(input_sequence[-1]) #only take the last value of the input sequence
-    prediction = slsm.predict(reservoir_activations)
+def renormalize(lsm, w_th):
+    N = lsm.n_reservoir
+    merged = True
+    print("N:", N)
+    while(merged):
+        merged = False
+        for i in range(N):
+            for j in range(i + 1, N):
+                if lsm.W[i, j] > w_th:
+                    merged = True
+                    print(f"Merging neurons {i} and {j} with weight {lsm.W[i, j]}")
+
+                    lsm.neuron_states[i] = (lsm.neuron_states[i] + lsm.neuron_states[j]) / 2
+
+                    for k in range(N):
+                        if k != i and k != j:
+                            if lsm.W[i, k] * lsm.W[j, k] == 0:
+                                lsm.W[i,k] = lsm.W[k,i] = max(lsm.W[i, k], lsm.W[j, k])
+                            else:
+                                lsm.W[i,k] = lsm.W[k,i] = (lsm.W[i,k] + lsm.W[j,k])/2
+
+                    lsm.W[j, :] = 0
+                    lsm.W[:, j] = 0
+                    lsm.neuron_states[j] = 0
+
+
+def train_output_layer(lsm, input_sequence, target, learning_rate): #target is now a single value
+    reservoir_activations, avl = lsm.step(input_sequence[-1]) #only take the last value of the input sequence
+    prediction = lsm.predict(reservoir_activations)
+    print("target:", target, "\nprediction", prediction)
+
+    error = target - prediction
+    print("error:", error)
+    #norm_activations = reservoir_activations / (np.linalg.norm(reservoir_activations) + 1e-6)
+    lsm.W_out += learning_rate * np.outer(error, reservoir_activations)
+    return abs(error), [avl] #return the absolute error
+
+def test_output_layer(lsm, input_sequence, target): #target is now a single value
+    reservoir_activations, avl = lsm.step(input_sequence[-1]) #only take the last value of the input sequence
+    prediction = lsm.predict(reservoir_activations)
     #print("target:", target, "\nprediction", prediction)
 
     error = target - prediction
     #print("error:", error)
-    norm_activations = reservoir_activations / (np.linalg.norm(reservoir_activations) + 1e-6)
-    slsm.W_out += learning_rate * np.outer(error, norm_activations) - 0.1 * slsm.W_out
-    #slsm.W_out += learning_rate * np.outer(error, reservoir_activations) - 0.1 * slsm.W_out
+    #norm_activations = reservoir_activations / (np.linalg.norm(reservoir_activations) + 1e-6)
+    #lsm.W_out += learning_rate * np.outer(error, reservoir_activations) - 0.1 * lsm.W_out
     return abs(error), [avl] #return the absolute error
+
 
 
 def generate_sine_wave(length, amplitude, frequency):
@@ -102,14 +120,14 @@ def generate_sine_wave(length, amplitude, frequency):
 
 
 # Create a sine wave dataset
-sine_wave = generate_sine_wave(1000, 0.75, 0.1)
+sine_wave = generate_sine_wave(500, 1, 1)
 
-slsm = SpikingLiquidStateMachine() 
-
-num_epochs = 100  # Increased epochs for better observation
-input_window_size = 20
-learning_rate = 0.001  # Reduced learning rate
-all_errors = []  # Store all errors in a single list
+lsm = SpikingLiquidStateMachine() 
+num_epochs = 1000  # Increased epochs for better observation
+input_window_size = 5
+learning_rate = 0.001
+# Reduced learning rate
+avg_errors = []  # Store avg error in a single list
 avls = []
 
 for epoch in range(num_epochs):
@@ -117,59 +135,32 @@ for epoch in range(num_epochs):
     for i in range(len(sine_wave) - input_window_size -1): #reduce range by one
         input_sequence = sine_wave[i:i+input_window_size]
         target = sine_wave[i + input_window_size]  # Correct target: next single value
-        err, avl = train_output_layer(slsm, input_sequence, target, learning_rate)
+        err, avl = train_output_layer(lsm, input_sequence, target, learning_rate)
         avls.extend(avl)
         epoch_error.append(err)
-        all_errors.append(err)
+    avg_errors.append(np.mean(epoch_error))
 
     print(f"Epoch {epoch+1}/{num_epochs}, Average Error: {np.mean(epoch_error)}")
-
-'''
-for epoch in range(num_epochs):
-    epoch_error = []
-    for i in range(len(sine_wave) - input_window_size):
+renormalize(lsm, 0.007)
+test_runs = 50
+test_errors = [] 
+for test in range(test_runs):
+    test_error = []
+    for i in range(len(sine_wave) - input_window_size -1): #reduce range by one
         input_sequence = sine_wave[i:i+input_window_size]
-        target_sequence = sine_wave[i+1:i+input_window_size+1]
-        err, avl = train_output_layer(slsm, input_sequence, target_sequence, learning_rate)
-        avls.extend(avl) #append avls
-        epoch_error.append(err)
-        all_errors.append(err) #append all errors
+        target = sine_wave[i + input_window_size]  # Correct target: next single value
+        err, avl = train_output_layer(lsm, input_sequence, target, 0.0)
+        avls.extend(avl)
+        test_error.append(err)
+    test_errors.append(np.mean(epoch_error))
 
-    print(f"Epoch {epoch+1}/{num_epochs}, Average Error: {np.mean(epoch_error)}")
-'''
+    print(f"Test {epoch+1}/{num_epochs}, Average Error: {np.mean(epoch_error)}")
 
+avg_errors.extend(test_errors)
 # Plot the error over all training steps
-plt.plot(all_errors)
-plt.xlabel("Training Step")
-plt.ylabel("Error")
-plt.title("Error During Training")
+plt.plot(avg_errors)
+plt.xlabel("Training Epoch")
+plt.ylabel("Average Error")
+plt.title("Average Error During Training")
 plt.show()
 
-#Plot the average number of firing neurons
-plt.plot(avls)
-plt.xlabel("Training Step")
-plt.ylabel("Average Firing Neurons")
-plt.title("Average Firing Neurons During Training")
-plt.show()
-
-
-'''
-num_epochs = 5
-input_window_size = 100
-learning_rate = 0.001
-error_trace = []
-avls = []
-
-# Train the SLSM
-for epoch in range(num_epochs):
-    epoch_error = []
-    for i in range(len(sine_wave) - input_window_size):
-        input_sequence = sine_wave[i:i+input_window_size]
-        target_sequence = sine_wave[i+1:i+input_window_size+1]
-        err, avl = train_output_layer(slsm, input_sequence, target_sequence, learning_rate)
-        avls.append(avl)
-        epoch_error.append(err)
-    error_trace.append(epoch_error)
-plt.plot(error_trace)
-plt.show()
-'''
