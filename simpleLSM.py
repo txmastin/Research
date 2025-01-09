@@ -63,29 +63,18 @@ class SpikingLiquidStateMachine:
         return self.neuron_states, sum(self.fired)
 
     def predict(self, reservoir_activations):
-        return np.tanh(np.dot(self.W_out, reservoir_activations))
+        return np.dot(self.W_out, reservoir_activations)
+        #return np.tanh(np.dot(self.W_out, reservoir_activations))
+
 
 def critical(
-    lsm, 
-    input_current=0.5, 
-    max_iterations=1000, 
-    tolerance=0.01, 
-    learning_rate=0.001
+    lsm,
+    input_current=0.2,
+    max_iterations=1000000,
+    tolerance=0.0005,
+    learning_rate=0.001,
+    avg_window=100
 ):
-    """
-    Adjusts the reservoir weights of the liquid state machine to drive it toward criticality.
-    Now includes a small constant input current to keep the network active.
-    
-    Parameters:
-        lsm (SpikingLiquidStateMachine): The LSM instance.
-        input_current (float): Small constant current added to all neurons.
-        max_iterations (int): Maximum number of iterations for weight updates.
-        tolerance (float): Target difference between branching ratio and 1.
-        learning_rate (float): Scaling factor for weight updates.
-        
-    Returns:
-        None
-    """
     def compute_branching_ratio(lsm):
         # Count parent and child spikes
         parent_spikes = np.sum(lsm.neuron_spikes_prev)
@@ -97,29 +86,58 @@ def critical(
         
         return child_spikes / parent_spikes
 
-    
+    avl = []
+    branching_ratios = []
     for iteration in range(max_iterations):
         lsm.neuron_spikes_prev = lsm.neuron_spikes.copy()
         lsm.step(input_current)
         # Compute branching ratio
         branching_ratio = compute_branching_ratio(lsm)
+        branching_ratios.append(branching_ratio)
+        
+        # Maintain a rolling average of branching ratio
+        if len(branching_ratios) > avg_window:
+            branching_ratios.pop(0)
+        
+        avg_branching_ratio = np.mean(branching_ratios)
         
         # Check for convergence
-        if abs(branching_ratio - 1) < tolerance:
-            print(f"Criticality achieved: Branching ratio = {branching_ratio:.4f}")
+        if abs(avg_branching_ratio - 1) < tolerance and iteration > avg_window:
+            print(f"Criticality achieved: Average branching ratio = {avg_branching_ratio:.4f}")
+            
+            # Continue sampling avalanches
+            for _ in range(100000):  # Adjust duration for your needs
+                lsm.step(input_current)
+                avl.append(sum(lsm.neuron_spikes))
+            
+            # Plot avalanche distribution
+            a, c = np.unique(avl, return_counts=True)
+            plt.loglog(a, c, marker='o', linestyle='none')
+            plt.xlabel("Avalanche size")
+            plt.ylabel("Frequency")
+            plt.title("Avalanche size distribution")
+            plt.show()
+            
             break
         
         # Update weights based on branching ratio
-        if branching_ratio > 1:  # Supercritical
-            lsm.W -= learning_rate * lsm.W  # Decrease weights slightly
-        elif branching_ratio < 1:  # Subcritical
-            lsm.W += learning_rate * lsm.W  # Increase weights slightly
+        if avg_branching_ratio > 1:  # Supercritical
+            active_neurons = lsm.neuron_spikes > 0
+            lsm.W[active_neurons, :] -= learning_rate * lsm.W[active_neurons, :]
+
+            #lsm.W -= learning_rate * lsm.W  # Decrease weights slightly
+        elif avg_branching_ratio < 1:  # Subcritical
+            active_neurons = lsm.neuron_spikes > 0
+            lsm.W[active_neurons, :] += learning_rate * lsm.W[active_neurons, :]
+
+
+            #lsm.W += learning_rate * lsm.W  # Increase weights slightly
         
         # Print progress
-        if iteration % 100 == 0:
-            print(f"Iteration {iteration}: Branching ratio = {branching_ratio:.4f}")
+        if iteration % 10 == 0:  # Print every 10 iterations for clarity
+            print(f"Iteration {iteration}: Avg branching ratio = {avg_branching_ratio:.4f}")
     else:
-        print("Max iterations reached. Branching ratio:", branching_ratio)
+        print("Max iterations reached. Branching ratio:", avg_branching_ratio)
 
     return
 
@@ -167,12 +185,12 @@ def train_output_layer(lsm, input_sequence, target, learning_rate): #target is n
 
     #norm_activations = reservoir_activations / (np.linalg.norm(reservoir_activations) + 1e-6)
     lsm.W_out += learning_rate * np.outer(error, reservoir_activations)
-    return abs(error), [avl] #return the absolute error
+    return abs(error), prediction
 
 def test_output_layer(lsm, input_sequence, target): #target is now a single value
     printing = False
     for value in input_sequence:
-        reservoir_activations, avl = lsm.step(value) #only take the last value of the input sequence
+        reservoir_activations, avl = lsm.step(value) 
     prediction = lsm.predict(reservoir_activations)
     
     error = target - prediction
@@ -181,7 +199,7 @@ def test_output_layer(lsm, input_sequence, target): #target is now a single valu
         print("target:", target, "\nprediction", prediction)
         print("error:", error)
 
-    return error, [avl] #return the absolute error
+    return error, prediction
 
 
 
@@ -195,7 +213,6 @@ lsm = SpikingLiquidStateMachine()
 
 critical(lsm)
 
-x = input()
 
 # find the maximum weight value of the lsm
 m = 0
@@ -204,40 +221,62 @@ for l in lsm.W:
         m = max(l)
 
 
-num_epochs = 1000  # Increased epochs for better observation
+num_epochs = 500 
 
-# Create a sine wave dataset
 sine_wave = generate_sine_wave(500, 1, 1)
-plt.plot(sine_wave)
-plt.show()
 
-input_window_size = 10
+input_window_size = 10 
 
 
 learning_rate = 0.001
 
-# Reduced learning rate
-avg_errors = []  # Store avg error in a single list
+avg_errors = []  
 avls = []
 
 for epoch in range(num_epochs):
     epoch_error = []
-    for i in range(len(sine_wave) - input_window_size -1): #reduce range by one
+    for i in range(len(sine_wave) - input_window_size):
         input_sequence = sine_wave[i:i+input_window_size]
-        target = sine_wave[i + input_window_size]  # Correct target: next single value
-        err, avl = train_output_layer(lsm, input_sequence, target, learning_rate)
-        avls.extend(avl)
+        target = sine_wave[i + input_window_size]
+        err, _ = train_output_layer(lsm, input_sequence, target, learning_rate)
         epoch_error.append(err)
     
     avg_errors.append(np.mean(epoch_error))
     print(f"Epoch {epoch+1}/{num_epochs}, Average Error: {np.mean(epoch_error)}")
 
-warmup = 10
-for i in range(warmup):
-    lsm.step(0)
 
+test_runs = 10
+test_errors = []
 
-renormalize(lsm, 0.99*m)
+for test in range(test_runs):
+    test_error = []
+    output = []
+    for i in range(len(sine_wave) - input_window_size):
+        input_sequence = sine_wave[i:i+input_window_size]
+        target = sine_wave[i + input_window_size]
+        err, out = test_output_layer(lsm, input_sequence, target)
+        test_error.append(abs(err))
+        output.append(out)
+    test_errors.append(np.mean(test_error))
+
+    print(f"Test pre-renormalization {test+1}/{test_runs}, Average Error: {np.mean(test_error)}")
+plt.plot(output)
+plt.show()
+
+renormalize(lsm, 0.75*m)
+
+#critical(lsm)
+
+for epoch in range(num_epochs):
+    epoch_error = []
+    for i in range(len(sine_wave) - input_window_size):
+        input_sequence = sine_wave[i:i+input_window_size]
+        target = sine_wave[i + input_window_size]
+        err, _ = train_output_layer(lsm, input_sequence, target, learning_rate)
+        epoch_error.append(err)
+    
+    avg_errors.append(np.mean(epoch_error))
+    print(f"Epoch {epoch+1}/{num_epochs}, Average Error: {np.mean(epoch_error)}")
 
 test_runs = 10
 test_errors = []
@@ -248,13 +287,12 @@ for test in range(test_runs):
     for i in range(len(sine_wave) - input_window_size -1): #reduce range by one
         input_sequence = sine_wave[i:i+input_window_size]
         target = sine_wave[i + input_window_size]  # Correct target: next single value
-        err, avl = test_output_layer(lsm, input_sequence, target)
-        avls.extend(avl)
+        err, out = test_output_layer(lsm, input_sequence, target)
         test_error.append(abs(err))
-        output.append(target - err)
+        output.append(out)
     test_errors.append(np.mean(test_error))
 
-    print(f"Test {test+1}/{test_runs}, Average Error: {np.mean(test_error)}")
+    print(f"Test post-renormalization {test+1}/{test_runs}, Average Error: {np.mean(test_error)}")
 plt.plot(output)
 plt.show()
 # Plot the error over all training steps
