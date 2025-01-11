@@ -73,8 +73,8 @@ def critical(
     lsm,
     input_current=0.3,
     max_iterations=1000000,
-    tolerance=0.0005,
-    learning_rate=0.001,
+    tolerance=0.001,
+    learning_rate=0.0001,
     avg_window=100
 ):
     def compute_branching_ratio(lsm):
@@ -132,8 +132,6 @@ def critical(
         elif avg_branching_ratio < 1:  # Subcritical
             active_neurons = lsm.neuron_spikes > 0
             lsm.W[active_neurons, :] += learning_rate * lsm.W[active_neurons, :]
-
-
             #lsm.W += learning_rate * lsm.W  # Increase weights slightly
         
         # Print progress
@@ -256,9 +254,38 @@ for epoch in range(num_epochs):
     print(f"Epoch {epoch+1}/{num_epochs}, Average Error: {np.mean(epoch_error)}")
 plt.figure()
 plt.title("pre-renorm")
-plt.plot(final_out)
+plt.plot(avg_errors)
 
 
+lsm = SpikingLiquidStateMachine()
+
+m = 0
+for l in lsm.W:
+    if max(l) > m:
+        m = max(l)
+
+
+avg_errors = []
+avls = []
+
+final_out = []
+
+for epoch in range(num_epochs):
+    epoch_error = []
+    for i in range(len(sine_wave) - input_window_size):
+        input_sequence = sine_wave[i:i+input_window_size]
+        target = sine_wave[i + input_window_size]
+        err, out = train_output_layer(lsm, input_sequence, target, learning_rate)
+        epoch_error.append(err)
+        if epoch == num_epochs - 1:
+            final_out.append(out)
+
+    avg_errors.append(np.mean(epoch_error))
+    print(f"Epoch {epoch+1}/{num_epochs}, Average Error: {np.mean(epoch_error)}")
+
+plt.plot(avg_errors)
+
+plt.show()
 
 
 '''
