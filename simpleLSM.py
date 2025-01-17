@@ -196,16 +196,16 @@ def renormalize(lsm, w_th):
 
 def random_prune(lsm, percent):
     N = lsm.n_reservoir
-    merged = True
-    print("N:", N)
+    count = 0 
     for i in range(N):
         if np.random.rand() < percent:
+            count += 1
             lsm.W[i, :] = 0
             lsm.W[:, i] = 0
             lsm.W_out[:,i] = 0
             lsm.W_in[i] = 0
             lsm.neuron_states[i] = 0
-
+    return count
 
 def train_output_layer(lsm, input_sequence, target, learning_rate):
     printing = False
@@ -266,6 +266,8 @@ def training_loop(lsm, num_epochs, input_window_size, sine_wave, learning_rate):
     return avg_errors, final_out
 
 
+# set up reservoirs and copies for comparison
+
 lsm_critical = SpikingLiquidStateMachine(input_scaling=0.105) 
 lsm_critical_copy = copy.deepcopy(lsm_critical)
 
@@ -275,6 +277,8 @@ lsm_control1_copy = copy.deepcopy(lsm_control1)
 lsm_control2 = SpikingLiquidStateMachine(input_scaling=0.22)
 lsm_control2_copy = copy.deepcopy(lsm_control2)
 
+# plot spike distributions for each reservoir
+
 critical(lsm_critical)
 
 critical(lsm_control1)
@@ -283,51 +287,50 @@ critical(lsm_control2)
 
 plt.show()
 
+# set up experiment parameters
+
 num_epochs = 200
 sine_wave = generate_sine_wave(100, 1, 1)
 input_window_size = 5 
 learning_rate = 0.001
 
-avg_errors, _ = training_loop(lsm_critical, num_epochs, input_window_size, sine_wave, learning_rate)
+# train original reservoirs and plot performance
+
+avg_errors_critical, _ = training_loop(lsm_critical, num_epochs, input_window_size, sine_wave, learning_rate)
 
 plt.figure()
 plt.title("Critical vs Non-Critical Performance")
-plt.plot(avg_errors, color="red", label="Critical Spiking")
+plt.plot(avg_errors_critical, color="red", label="Critical Spiking")
 
-avg_errors, _ = training_loop(lsm_control1, num_epochs, input_window_size, sine_wave, learning_rate)
+avg_errors_control1, _ = training_loop(lsm_control1, num_epochs, input_window_size, sine_wave, learning_rate)
 
-plt.plot(avg_errors, color="black", label="Synchronous Spiking")
+plt.plot(avg_errors_control1, color="black", label="Synchronous Spiking")
 
-avg_errors, _ = training_loop(lsm_control2, num_epochs, input_window_size, sine_wave, learning_rate)
+avg_errors_control2, _ = training_loop(lsm_control2, num_epochs, input_window_size, sine_wave, learning_rate)
 
-plt.plot(avg_errors, color="blue", label="Random Spiking")
+plt.plot(avg_errors_control2, color="blue", label="Random Spiking")
 plt.xlabel("Training Step")
 plt.ylabel("Average Error")
 plt.title("Average Error During Training")
 plt.legend()
 plt.show()
 
-# find the maximum weight value of the lsm
+
+# find the maximum weight value of the lsms and perform renormalization
+
 m = 0
 for l in lsm_critical.W:
     if max(l) > m:
         m = max(l)
 
+n_renorm_critical = renormalize(lsm_critical, 0.993*m)
 
-n_renorm = renormalize(lsm_critical, 0.993*m)
-
-print(n_renorm)
-
-# find the maximum weight value of the lsm
 m = 0
 for l in lsm_control1.W:
     if max(l) > m:
         m = max(l)
 
-
-n_renorm = renormalize(lsm_control1, 0.993*m)
-
-print(n_renorm)
+n_renorm_control1 = renormalize(lsm_control1, 0.993*m)
 
 # find the maximum weight value of the lsm
 m = 0
@@ -335,14 +338,15 @@ for l in lsm_control2.W:
     if max(l) > m:
         m = max(l)
 
-n_renorm = renormalize(lsm_control2, 0.993*m)
+n_renorm_control2 = renormalize(lsm_control2, 0.993*m)
 
-print(n_renorm)
+# random prune the copies for comparison
 
+n_prune_critical = random_prune(lsm_critical_copy, 0.41)
+n_prune_control1 = random_prune(lsm_control1_copy, 0.41)
+n_prune_control2 = random_prune(lsm_control2_copy, 0.41)
 
-random_prune(lsm_critical_copy, 0.41)
-random_prune(lsm_control1_copy, 0.41)
-random_prune(lsm_control2_copy, 0.41)
+# plot spike distributions for renormalized and pruned reservoirs
 
 critical(lsm_critical)
 critical(lsm_control1)
@@ -353,19 +357,21 @@ critical(lsm_control2_copy)
 
 plt.show()
 
-avg_errors, _ = training_loop(lsm_critical, num_epochs, input_window_size, sine_wave, learning_rate)
+# train renormalized reservoirs and plot performance
+
+avg_errors_critical_renorm, _ = training_loop(lsm_critical, num_epochs, input_window_size, sine_wave, learning_rate)
 
 plt.figure()
 plt.title("Critical vs Non-Critical Performance after Coarse-Graining")
-plt.plot(avg_errors, color="red", label="Critical Spiking")
+plt.plot(avg_errors_critical_renorm, color="red", label="Critical Spiking")
 
-avg_errors, _ = training_loop(lsm_control1, num_epochs, input_window_size, sine_wave, learning_rate)
+avg_errors_control1_renorm, _ = training_loop(lsm_control1, num_epochs, input_window_size, sine_wave, learning_rate)
 
-plt.plot(avg_errors, color="black", label="Synchronous Spiking")
+plt.plot(avg_errors_control1_renorm, color="black", label="Synchronous Spiking")
 
-avg_errors, _ = training_loop(lsm_control2, num_epochs, input_window_size, sine_wave, learning_rate)
+avg_errors_control2_renorm, _ = training_loop(lsm_control2, num_epochs, input_window_size, sine_wave, learning_rate)
 
-plt.plot(avg_errors, color="blue", label="Random Spiking")
+plt.plot(avg_errors_control2_renorm, color="blue", label="Random Spiking")
 
 plt.xlabel("Training Step")
 plt.ylabel("Average Error")
@@ -373,24 +379,30 @@ plt.title("Average Error During Training")
 plt.legend()
 plt.show()
 
+# train randomly pruned reservoirs and plot performance
 
-avg_errors, _ = training_loop(lsm_critical_copy, num_epochs, input_window_size, sine_wave, learning_rate)
+avg_errors_critical_prune, _ = training_loop(lsm_critical_copy, num_epochs, input_window_size, sine_wave, learning_rate)
 
 plt.figure()
 plt.title("Critical vs Non-Critical Performance after Random Pruning")
-plt.plot(avg_errors, color="red", label="Critical Spiking")
+plt.plot(avg_errors_critical_prune, color="red", label="Critical Spiking")
 
-avg_errors, _ = training_loop(lsm_control1_copy, num_epochs, input_window_size, sine_wave, learning_rate)
+avg_errors_control1_prune, _ = training_loop(lsm_control1_copy, num_epochs, input_window_size, sine_wave, learning_rate)
 
-plt.plot(avg_errors, color="black", label="Synchronous Spiking")
+plt.plot(avg_errors_control1_prune, color="black", label="Synchronous Spiking")
 
-avg_errors, _ = training_loop(lsm_control2_copy, num_epochs, input_window_size, sine_wave, learning_rate)
+avg_errors_control2_prune, _ = training_loop(lsm_control2_copy, num_epochs, input_window_size, sine_wave, learning_rate)
 
-plt.plot(avg_errors, color="blue", label="Random Spiking")
+plt.plot(avg_errors_control2_prune, color="blue", label="Random Spiking")
 
 plt.xlabel("Training Step")
 plt.ylabel("Average Error")
 plt.title("Average Error During Training")
 plt.legend()
 plt.show()
+
+# plot final performance compared to size of reservoir
+
+
+
 
