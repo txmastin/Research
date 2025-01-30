@@ -1,5 +1,5 @@
 import numpy as np
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 import copy
 
 class SpikingLiquidStateMachine:
@@ -104,10 +104,10 @@ def critical(
 
         # Plot avalanche distribution
         a, c = np.unique(avl, return_counts=True)
-        plt.loglog(a, c, color=color, linestyle=linestyle, label=label)
-        plt.legend()
-        plt.xlabel("Avalanche size", fontsize=18)
-        plt.ylabel("Frequency", fontsize=18)
+        #plt.loglog(a, c, color=color, linestyle=linestyle, label=label)
+        #plt.legend()
+        #plt.xlabel("Avalanche size", fontsize=18)
+        #plt.ylabel("Frequency", fontsize=18)
         #plt.title("Avalanche size distribution")
         #plt.show()
     
@@ -138,12 +138,12 @@ def critical(
                 avl.append(sum(lsm.neuron_spikes))
             # Plot avalanche distribution
             a, c = np.unique(avl, return_counts=True)
-            plt.figure()
-            plt.loglog(a, c, marker='o', linestyle='none')
-            plt.xlabel("Avalanche size")
-            plt.ylabel("Frequency")
-            plt.title("Avalanche size distribution")
-            plt.show()
+            #plt.figure()
+            #plt.loglog(a, c, marker='o', linestyle='none')
+            #plt.xlabel("Avalanche size")
+            #plt.ylabel("Frequency")
+            #plt.title("Avalanche size distribution")
+            #plt.show()
             break
         
         # Update weights based on branching ratio
@@ -264,7 +264,7 @@ def training_loop(lsm, num_epochs, input_window_size, inp, learning_rate):
                 final_out.append(out)
 
         avg_errors.append(np.mean(epoch_error))
-        if(epoch % 10 == 0):
+        if(epoch % 100 == 0):
             print(f"Training Step: {epoch}/{num_epochs}, Average Error: {np.mean(epoch_error)}")
     return avg_errors, final_out
 
@@ -279,7 +279,7 @@ mg = [float(line.split()[1]) for line in lines]
 
 N = 1000
 
-datasets = [sine_wave, mg]
+datasets = [sine_wave]
 
 first = True
 for data in datasets:
@@ -304,7 +304,7 @@ for data in datasets:
     avg_size_control2_prune = 0
 
 
-    trials = 10
+    trials = 20
 
     for i in range(trials):
         # set up reservoirs and copies for comparison
@@ -320,7 +320,7 @@ for data in datasets:
         
         # set up experiment parameters
 
-        num_epochs = 600
+        num_epochs = 8000
         input_window_size = 5 
         learning_rate = 0.001
 
@@ -341,11 +341,11 @@ for data in datasets:
         #plt.show()
         
         if first:
-            avg_errors_critical_str = "data/rg_paper/sine_wave/avg_errors_critical_" + str(i) + ".dat"
+            avg_errors_critical_str = "data/rg_paper/sine_wave/avg_errors_critical_" + str(i+20) + ".dat"
             np.savetxt(avg_errors_critical_str, avg_errors_critical, delimiter=",")
-            avg_errors_control1_str = "data/rg_paper/sine_wave/avg_errors_control1_" + str(i) + ".dat"
+            avg_errors_control1_str = "data/rg_paper/sine_wave/avg_errors_control1_" + str(i+20) + ".dat"
             np.savetxt(avg_errors_control1_str, avg_errors_control1, delimiter=",")
-            avg_errors_control2_str = "data/rg_paper/sine_wave/avg_errors_control2_" + str(i) + ".dat"
+            avg_errors_control2_str = "data/rg_paper/sine_wave/avg_errors_control2_" + str(i+20) + ".dat"
             np.savetxt(avg_errors_control2_str, avg_errors_control2, delimiter=",")
          
         else:
@@ -425,11 +425,11 @@ for data in datasets:
         #plt.ylabel("Average Error", fontsize=18)
         #plt.legend()
         if first: 
-            avg_errors_critical_renorm_str = "data/rg_paper/sine_wave/avg_errors_critical_renorm_" + str(i) + ".dat"
+            avg_errors_critical_renorm_str = "data/rg_paper/sine_wave/avg_errors_critical_renorm_" + str(i+20) + ".dat"
             np.savetxt(avg_errors_critical_renorm_str, avg_errors_critical_renorm, delimiter=",")
-            avg_errors_control1_renorm_str = "data/rg_paper/sine_wave/avg_errors_control1_renorm_" + str(i) + ".dat"
+            avg_errors_control1_renorm_str = "data/rg_paper/sine_wave/avg_errors_control1_renorm_" + str(i+20) + ".dat"
             np.savetxt(avg_errors_control1_renorm_str, avg_errors_control1_renorm, delimiter=",")
-            avg_errors_control2_renorm_str = "data/rg_paper/sine_wave/avg_errors_control2_renorm_" + str(i) + ".dat"
+            avg_errors_control2_renorm_str = "data/rg_paper/sine_wave/avg_errors_control2_renorm_" + str(i+20) + ".dat"
             np.savetxt(avg_errors_control2_renorm_str, avg_errors_control2_renorm, delimiter=",")
         else: 
             avg_errors_critical_renorm_str = "data/rg_paper/mg/avg_errors_critical_renorm_" + str(i) + ".dat"
@@ -483,7 +483,13 @@ for data in datasets:
         avg_size_critical_renorm += (N-n_renorm_critical)
         avg_size_control1_renorm += (N-n_renorm_control1)
         avg_size_control2_renorm += (N-n_renorm_control2)
-
+        with open("data/rg_paper/avg_size_critical_renorm.dat", "a") as file:
+            file.write(str(N-n_renorm_critical)+"\n")
+        with open("data/rg_paper/avg_size_control1_renorm.dat", "a") as file:
+            file.write(str(N-n_renorm_control1)+"\n")
+        with open("data/rg_paper/avg_size_control2_renorm.dat", "a") as file:
+            file.write(str(N-n_renorm_control2)+"\n")
+        
         #avg_size_critical_prune += (N-n_prune_critical)
         #avg_size_control1_prune += (N-n_prune_control1)
         #avg_size_control2_prune += (N-n_prune_control2)
@@ -512,22 +518,23 @@ for data in datasets:
     #avg_size_control2_prune /= trials 
 
 
-    plt.figure()
+    #plt.figure()
 
-    plt.plot(N, avg_perf_critical, 'rv') #, label="Critical Start")
-    plt.plot(N, avg_perf_control1, 'bv') #,, label="Sync Start")
-    plt.plot(N, avg_perf_control2, 'kv') #,, label="Random Start")
+    #plt.plot(N, avg_perf_critical, 'rv') #, label="Critical Start")
+    #plt.plot(N, avg_perf_control1, 'bv') #,, label="Sync Start")
+    #plt.plot(N, avg_perf_control2, 'kv') #,, label="Random Start")
 
-    plt.plot(avg_size_critical_renorm, avg_perf_critical_renorm, 'ro') #,, label="Critical End Renorm")
-    plt.plot(avg_size_control1_renorm, avg_perf_control1_renorm, 'bo') #,, label="Sync End Renorm")
-    plt.plot(avg_size_control2_renorm, avg_perf_control2_renorm, 'ko') #,, label="Random End Renorm")
+    #plt.plot(avg_size_critical_renorm, avg_perf_critical_renorm, 'ro') #,, label="Critical End Renorm")
+    #plt.plot(avg_size_control1_renorm, avg_perf_control1_renorm, 'bo') #,, label="Sync End Renorm")
+    #plt.plot(avg_size_control2_renorm, avg_perf_control2_renorm, 'ko') #,, label="Random End Renorm")
 
     #plt.plot(avg_size_critical_prune, avg_perf_critical_prune, 'rs') #,, label="Critical End Prune")
     #plt.plot(avg_size_control1_prune, avg_perf_control1_prune, 'ks') #,, label="Sync End Prune")
     #plt.plot(avg_size_control2_prune, avg_perf_control2_prune, 'bs') #,, label="Random End Prune")
 
 
-    plt.xlabel("Size of Reservoir", fontsize=18)
-    plt.ylabel("Accuracy After Training", fontsize=18)
+    #plt.xlabel("Size of Reservoir", fontsize=18)
+    #plt.ylabel("Accuracy After Training", fontsize=18)
 
-plt.show()
+print("complete")
+#plt.show()
