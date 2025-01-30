@@ -1,5 +1,5 @@
 import numpy as np
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 import copy
 
 class SpikingLiquidStateMachine:
@@ -98,17 +98,17 @@ def critical(
     branching_ratios = []
     if avalanches:
         # Continue sampling avalanches
-        for _ in range(50000):
+        for _ in range(100):
             lsm.step(input_current)
             avl.append(sum(lsm.neuron_spikes))
 
         # Plot avalanche distribution
         a, c = np.unique(avl, return_counts=True)
-        #plt.loglog(a, c, color=color, linestyle=linestyle, label=label)
-        #plt.legend()
-        #plt.xlabel("Avalanche size", fontsize=18)
-        #plt.ylabel("Frequency", fontsize=18)
-        #plt.title("Avalanche size distribution")
+        plt.loglog(a, c, color=color, linestyle=linestyle, label=label)
+        plt.legend()
+        plt.xlabel("Avalanche size", fontsize=12)
+        plt.ylabel("Frequency", fontsize=12)
+        plt.title("Avalanche size distribution")
         #plt.show()
     
     avl = []
@@ -325,7 +325,7 @@ for data in datasets:
         learning_rate = 0.001
 
         # train original reservoirs and plot performance
-
+        '''
         avg_errors_critical, _ = training_loop(lsm_critical, num_epochs, input_window_size, data, learning_rate)
 
 
@@ -356,7 +356,7 @@ for data in datasets:
             avg_errors_control2_str = "data/rg_paper/mg/avg_errors_control2_" + str(i) + ".dat"
             np.savetxt(avg_errors_control2_str, avg_errors_control2, delimiter=",")        
         # find the maximum weight value of the lsms and perform renormalization
-
+        '''
         m = 0
         for l in lsm_critical.W:
             if max(l) > m:
@@ -390,22 +390,20 @@ for data in datasets:
 
         # plot spike distributions for renormalized and pruned reservoirs
         
-        '''
         
-        critical(lsm_critical)
-        critical(lsm_control1)
-        critical(lsm_control2)
-        critical(lsm_critical_copy)
-        critical(lsm_control1_copy)
-        critical(lsm_control2_copy)
         
-        '''
+        critical(lsm_critical, color="red", linestyle="solid", label="Critical Spiking")
+        critical(lsm_control1, color="blue", linestyle="dotted", label="Synchronous Spiking")
+        critical(lsm_control2, color="black", linestyle="dashed", label="Irregular Spiking")
+        critical(lsm_critical_copy, color="red", linestyle="solid", label="Critical Spiking")
+        critical(lsm_control1_copy, color="blue", linestyle="dotted", label="Synchronous Spiking")
+        critical(lsm_control2_copy, color="black", linestyle="dotted", label="Irregular Spiking")
+       
+
+        plt.show()
 
 
-        #plt.show()
-
-
-
+        x = input()
 
         # train renormalized reservoirs and plot performance
 

@@ -88,8 +88,8 @@ def plot_average_error_with_std(errors_dict, renorm_dict, reservoir_labels, line
             color=line_styles[res_type]['color'], alpha=0.2
         )
     
-    plt.xlabel("Training Step", fontsize=18)
-    plt.ylabel("Average Error", fontsize=18)
+    plt.xlabel("Training Step", fontsize=12)
+    plt.ylabel("Average Error", fontsize=12)
     plt.legend()
     plt.grid(False)
  
@@ -109,8 +109,8 @@ def plot_average_error_with_std(errors_dict, renorm_dict, reservoir_labels, line
         )
     
     # Formatting and labels
-    plt.xlabel("Training Step", fontsize=18)
-    plt.ylabel("Average Error", fontsize=18)
+    plt.xlabel("Training Step", fontsize=12)
+    plt.ylabel("Average Error", fontsize=12)
     plt.legend()
     plt.grid(False)
     plt.savefig("average_error_with_std_over_training.png")
@@ -196,8 +196,8 @@ def plot_accuracy_vs_size(accuracy_before, accuracy_after, reservoir_labels, lin
     plt.legend(handles=manual_legend, loc="upper left", fontsize=10)
 
     # Plot labels and formatting
-    plt.xlabel("Reservoir Size", fontsize=18)
-    plt.ylabel("Accuracy After Training", fontsize=18)
+    plt.xlabel("Reservoir Size", fontsize=12)
+    plt.ylabel("Accuracy After Training", fontsize=12)
     plt.savefig("accuracy_vs_size_with_manual_legend.png")
     plt.show()
 
@@ -250,8 +250,8 @@ def old_plot_accuracy_vs_size(accuracy_before, accuracy_after, reservoir_labels,
         )
     
     # Plot labels and formatting
-    plt.xlabel("Reservoir Size", fontsize=18)
-    plt.ylabel("Accuracy After Training", fontsize=18)
+    plt.xlabel("Reservoir Size", fontsize=12)
+    plt.ylabel("Accuracy After Training", fontsize=12)
     plt.legend()
     plt.savefig("accuracy_vs_size_with_arrows_and_error_bars.png")
     plt.show()
