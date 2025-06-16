@@ -12,7 +12,7 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.regularizers import l2
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 
-def build_1d_cnn_eeg_model(input_shape, num_classes=3, learning_rate=0.0001, l2_rate=0.2):
+def build_1d_cnn_eeg_model(input_shape, num_classes=3, learning_rate=0.0001, l2_rate=0.3):
     """
     Builds a 1D Convolutional Neural Network model for EEG classification.
 
@@ -40,13 +40,13 @@ def build_1d_cnn_eeg_model(input_shape, num_classes=3, learning_rate=0.0001, l2_
     model.add(BatchNormalization(name='bn1_1'))
     model.add(MaxPooling1D(pool_size=2, name='pool1_1')) 
     # pool_size=2 will halve the sequence length.
-    model.add(Dropout(0.2, name='drop1_1'))
+    model.add(Dropout(0.4, name='drop1_1'))
 
     # --- Convolutional Block 2 ---
     model.add(Conv1D(filters=32, kernel_size=10, activation='relu', padding='same', name='conv1_2', kernel_regularizer=l2(l2_rate)))
     model.add(BatchNormalization(name='bn1_2'))
     model.add(MaxPooling1D(pool_size=2, name='pool1_2'))
-    model.add(Dropout(0.2, name='drop1_2'))
+    model.add(Dropout(0.4, name='drop1_2'))
 
     # --- Convolutional Block 3 ---
     # You can add more blocks like this if needed, increasing filters.
@@ -54,7 +54,7 @@ def build_1d_cnn_eeg_model(input_shape, num_classes=3, learning_rate=0.0001, l2_
     model.add(Conv1D(filters=64, kernel_size=10, activation='relu', padding='same', name='conv1_3', kernel_regularizer=l2(l2_rate)))
     model.add(BatchNormalization(name='bn1_3'))
     model.add(MaxPooling1D(pool_size=2, name='pool1_3'))
-    model.add(Dropout(0.2, name='drop1_3'))
+    model.add(Dropout(0.4, name='drop1_3'))
 
     # --- Feature Aggregation ---
     # GlobalAveragePooling1D calculates the average of features across the time dimension.
@@ -128,6 +128,27 @@ if __name__ == '__main__':
         # Further checks for X_val, X_test as needed
     else:
         print("\nData loading might have encountered issues or resulted in empty sets.")
+
+
+    # ==============================================================================
+    #                      STEP 4: ADDRESSING CLASS IMBALANCE
+    # ==============================================================================
+    from sklearn.utils import class_weight
+    import numpy as np
+
+    # This computes weights that give more importance to under-represented classes
+    class_weights = class_weight.compute_class_weight(
+        'balanced',
+        classes=np.unique(y_train),
+        y=y_train
+    )
+
+    # Keras expects a dictionary mapping class indices to their weights
+    class_weights_dict = dict(enumerate(class_weights))
+
+    print("\n--- Calculated Class Weights ---")
+    print(f"Weights for classes 0, 1, 2: {class_weights_dict}")
+
     # Build the model
     cnn_model = build_1d_cnn_eeg_model(input_shape=input_shape_for_model, num_classes=NUM_CLASSES)
 
@@ -150,7 +171,8 @@ if __name__ == '__main__':
                              epochs=50, 
                              batch_size=64, 
                              validation_data=(X_val, y_val),
-                             callbacks=[early_stopping_cb, model_checkpoint_cb] 
+                             callbacks=[early_stopping_cb, model_checkpoint_cb],
+                             class_weight=class_weights_dict
                             )
     
     # --- And then evaluate it ---
@@ -161,4 +183,81 @@ if __name__ == '__main__':
 
 
 
+# ==============================================================================
+#                      STEP 2: DETAILED MODEL EVALUATION
+# ==============================================================================
+import numpy as np
+from sklearn.metrics import classification_report, confusion_matrix
+import matplotlib.pyplot as plt
+import seaborn as sns
 
+# Let's define the names of our classes for clear labeling in our plots
+CLASS_NAMES = ['Healthy', 'Alzheimer\'s', 'FTD'] # IMPORTANT: Make sure this order is correct!
+                                                 # It should correspond to the integer labels (0, 1, 2).
+
+# --- Get Model Predictions ---
+# We use .predict() to get the raw softmax probabilities for each class
+y_pred_probs = cnn_model.predict(X_test)
+
+# We convert these probabilities to class predictions by taking the argmax
+# (i.e., the index of the highest probability)
+y_pred = np.argmax(y_pred_probs, axis=1)
+
+# --- Generate and Print Classification Report ---
+# This report gives us precision, recall (sensitivity), and F1-score for each class.
+print("\n--- Classification Report ---")
+print(classification_report(y_test, y_pred, target_names=CLASS_NAMES))
+
+# --- Generate and Visualize Confusion Matrix ---
+print("\n--- Confusion Matrix ---")
+cm = confusion_matrix(y_test, y_pred)
+
+plt.figure(figsize=(8, 6))
+sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
+            xticklabels=CLASS_NAMES, yticklabels=CLASS_NAMES)
+plt.title('Confusion Matrix')
+plt.ylabel('Actual Label')
+plt.xlabel('Predicted Label')
+plt.savefig('confusion_matrix.png')
+print("Confusion matrix saved to confusion_matrix.png")
+
+# ==============================================================================
+#           STEP 3: VISUALIZING LEARNING CURVES
+# ==============================================================================
+
+# The 'history' object is returned from the model.fit() call.
+history_dict = history.history
+
+# Get the accuracy and loss values
+train_acc = history_dict['accuracy']
+val_acc = history_dict['val_accuracy']
+train_loss = history_dict['loss']
+val_loss = history_dict['val_loss']
+
+# Generate a sequence of numbers for the x-axis (epochs)
+epochs = range(1, len(train_acc) + 1)
+
+# --- Plot Training and Validation Accuracy ---
+plt.figure(figsize=(12, 5))
+
+plt.subplot(1, 2, 1) # 1 row, 2 columns, plot 1
+plt.plot(epochs, train_acc, 'b-', label='Training Accuracy')
+plt.plot(epochs, val_acc, 'r-', label='Validation Accuracy')
+plt.title('Training and Validation Accuracy')
+plt.xlabel('Epochs')
+plt.ylabel('Accuracy')
+plt.legend()
+
+# --- Plot Training and Validation Loss ---
+plt.subplot(1, 2, 2) # 1 row, 2 columns, plot 2
+plt.plot(epochs, train_loss, 'b-', label='Training Loss')
+plt.plot(epochs, val_loss, 'r-', label='Validation Loss')
+plt.title('Training and Validation Loss')
+plt.xlabel('Epochs')
+plt.ylabel('Loss')
+plt.legend()
+
+plt.tight_layout()
+
+plt.savefig('learning_curves.png')
+print("Learning curves plot saved to learning_curves.png")
